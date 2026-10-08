@@ -1,0 +1,11 @@
+analysis/
+output/
+backups/
+__pycache__/
+*.pyc
+*.spec
+.venv/
+.env
+*.exe
+*.dll
+*.zip
