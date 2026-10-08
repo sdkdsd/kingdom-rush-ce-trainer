@@ -5,7 +5,10 @@
 
 ## 下载与使用
 
-在 [Releases](https://github.com/sdkdsd/kingdom-rush-ce-trainer/releases/latest) 下载 ZIP 并解压，运行 `KingdomRush-CE.exe`。
+新版：[v2.2.0-rc1 预发布版](https://github.com/sdkdsd/kingdom-rush-ce-trainer/releases/tag/v2.2.0-rc1)，新增战斗倍率和 10 倍速，待游戏内验收。
+
+已获用户实测反馈的版本：[v2.1.0](https://github.com/sdkdsd/kingdom-rush-ce-trainer/releases/tag/v2.1.0)。
+下载对应 ZIP 并解压，运行 `KingdomRush-CE.exe`。
 单文件内置本版本所需的 CE 接入组件，使用者无需另外安装 Python 或 CE。
 
 1. 从 Steam 启动原版游戏，进入主菜单。
@@ -19,12 +22,23 @@
 ## 功能
 
 - 金币设置、增加与锁定；基地生命设置与锁定。
-- 0.5–5 倍速度，火雨／援军技能冷却。
+- 0.5–10 倍速度，火雨／援军技能冷却。
 - 英雄、士兵、防御塔分别设置 0.1–100 倍伤害。
+- 防御塔（不含士兵）、士兵（含援军）、英雄独立 1–10 倍攻速。
+- 敌人击杀金币 1–100 倍；敌人移动速度 0.1–1 倍；敌人攻击伤害 0–1 倍。
 - 当前存档额外升级星星，不修改关卡星级。
 - 一键解锁 13 位英雄：不伪造通关记录，标记随存档保存，连接修改器后解除选择限制。
 - 当前存档 74 项成就解锁，并向当前 Steam 账户提交。
 
+分类顺序为 **我方buff → 敌方debuff → 其他**：
+
+- 我方buff：金币、生命、速度、冷却；英雄、士兵、防御塔的伤害与攻速并排显示。
+- 敌方debuff：击杀金币掉落、敌人移动速度与攻击伤害。
+- 其他：额外星星、英雄解锁、成就解锁与说明。
+
+攻速只调整攻击间隔、出手时序和攻击动画，不加快移动、复活或独立技能计时。
+金币倍率只作用于击杀奖励；提前出怪奖励、卖塔退款和漏怪返金保持原值。
+特殊脚本、瞬移和即死效果不保证受倍率影响。游戏速度与攻速叠加，10 倍速受 CPU 性能和模拟帧率限制。
 当前 Steam PC 版未启用钻石商店，因此没有钻石按钮。
 
 **成就操作会同时解锁 Steam 成就，恢复本地存档无法撤销。**
@@ -39,7 +53,8 @@ Ctrl+F4 冷却；Ctrl+F5 复位临时效果；F8 游戏内状态条。
 ## 验证状态
 
 作者已收到使用者对原版连接、原有功能、备份恢复及新增解锁功能的实测通过反馈。
-离线覆盖：173 项共享逻辑检查、117 项解锁检查、23 项面板测试，
+v2.2 新功能尚未获得游戏内验收反馈。离线覆盖：173 项共享逻辑检查、117 项解锁检查、25 项面板测试、
+49 项战斗倍率检查、36 项含 10 倍速的原版模拟器检查，
 以及 11 组真实 CE 隔离进程载荷和 6 组异常恢复场景；真实 Steam 调用不在自动测试中执行。
 
 v2.1.0 发布保留实测通过的原始 EXE，内部标题仍显示 `2.1 RC1`。
@@ -55,7 +70,7 @@ Windows x64，Python 3.14，PyInstaller 6。自行准备合法安装的对应游
 ```powershell
 python -m pip install -r requirements-build.txt
 python tools/kingdom_rush_ce/build.py
-python -m PyInstaller --noconfirm --windowed --onefile --name KingdomRush-CE --distpath output/KingdomRushCE --workpath analysis/kingdom-rush/pyinstaller-ce --specpath analysis/kingdom-rush --add-data "$((Resolve-Path 'analysis/kingdom-rush/ce-stage/ce').Path);ce" analysis/kingdom-rush/ce-stage/panel.py
+python -m PyInstaller --noconfirm --windowed --onefile --name KingdomRush-CE --distpath output/KingdomRushCE-2.2 --workpath analysis/kingdom-rush/pyinstaller-ce --specpath analysis/kingdom-rush --add-data "$((Resolve-Path 'analysis/kingdom-rush/ce-stage/ce').Path);ce" analysis/kingdom-rush/ce-stage/panel.py
 python tools/prepare_tests.py
 python tools/run_tests.py
 python tools/kingdom_rush_ce/test_release.py
@@ -66,7 +81,7 @@ python tools/kingdom_rush_ce/test_release.py
 `test_release.py` 需要先构建 EXE，再运行其他测试。
 
 核心：`tools/kingdom_rush_ce/panel.py` 是界面，`bridge.lua` 是 CE 接入，
-`progression.lua` 是英雄与成就功能；`tools/kingdom_rush_trainer/` 提供共享逻辑，
+`progression.lua` 是英雄与成就功能，`combat.lua` 是攻速与敌方倍率；`tools/kingdom_rush_trainer/` 提供共享逻辑，
 其中 `trainer.py` 是生成界面的基础模块，请勿把它单独作为成品运行。
 
 ## 第三方组件

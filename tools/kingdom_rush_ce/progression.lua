@@ -1,6 +1,6 @@
 -- Installed only in the CE edition. No command is executed during installation.
 return function(T)
- local VERSION='2.1 RC1'
+ local VERSION='2.2 RC1'
  local PHRASE='我确认解锁全部成就'
  local originals=setmetatable({},{__mode='k'})
  local last_room,last_slot,last_enabled

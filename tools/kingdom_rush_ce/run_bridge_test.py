@@ -9,15 +9,20 @@ def literal(s):return '[=====['+s+']=====]'
 
 def runtime_payload():
     code=(HERE.parent/'kingdom_rush_trainer/runtime.lua').read_text(encoding='utf8').replace("'kr_trainer/'","'kr_trainer_ce/'").replace("'kr_trainer'","'kr_trainer_ce'")
+    code=code.replace('tower_damage=1}', 'tower_damage=1,tower_rate=1,soldier_rate=1,hero_rate=1,enemy_gold=1,enemy_speed=1,enemy_damage=1}')
+    code=code.replace('speed={0.5,5}', 'speed={0.5,10}')
+    code=code.replace('tower_damage={0.1,100}}','tower_damage={0.1,100},tower_rate={1,10},soldier_rate={1,10},hero_rate={1,10},enemy_gold={1,100},enemy_speed={0.1,1},enemy_damage={0,1}}')
     return """assert(type(love)=='table' and type(love.update)=='function' and package.loaded.storage,'not a ready main game state')
 if not KR_CE_RUNTIME then
 local T=(function()\n"""+code+"""\nend)()
 local progression=(function()\n"""+(HERE/'progression.lua').read_text(encoding='utf8')+"""\nend)()
 progression(T)
+local combat=(function()\n"""+(HERE/'combat.lua').read_text(encoding='utf8')+"""\nend)()
+combat(T)
 T.install()
 KR_CE_RUNTIME=T
 end
-assert(KR_CE_RUNTIME.ce_version=='2.1 RC1','修改器版本已更新，请退出游戏后重新连接')
+assert(KR_CE_RUNTIME.ce_version=='2.2 RC1','修改器版本已更新，请退出游戏后重新连接')
 KR_CE_RUNTIME.hook();KR_CE_RUNTIME.poll(true);KR_CE_RUNTIME.status()
 return 'KR_CE_READY'
 """

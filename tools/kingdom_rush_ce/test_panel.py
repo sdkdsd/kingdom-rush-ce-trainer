@@ -28,6 +28,7 @@ class PanelTests(unittest.TestCase):
         self.p.backend=None;self.p.backend_started=0;self.p.hotkey_down=set()
         self.p.cfg=base.DEFAULTS.copy();self.p.seq=10;self.p.pending=None
         self.p.vars={k:Var(v) for k,v in dict(gold='1000',lives='20',stars='99',gems='999',speed='1',hero_damage='1',soldier_damage='1',tower_damage='1').items()}
+        for k in ('tower_rate','soldier_rate','hero_rate','enemy_gold','enemy_speed','enemy_damage'):self.p.vars[k]=Var('1')
         self.p.lock_gold=Var(False);self.p.lock_lives=Var(False);self.p.cooldown=Var(False)
         self.p.note=Var();self.p.status_var=Var();self.p.after=Mock();self.p.destroy=Mock()
     def tearDown(self):
@@ -139,5 +140,19 @@ class PanelTests(unittest.TestCase):
         self.p.unlock_heroes()
         self.assertIn('action=unlock_heroes',(self.control/'control.txt').read_text())
         self.assertEqual(next((self.root/'backups').glob('*/slot_1.lua')).read_text(),'heroes={}')
+
+    def test_new_settings_and_ten_times_speed_are_sent(self):
+        self.p.vars['speed'].set('10');self.p.vars['tower_rate'].set('5')
+        self.p.vars['enemy_damage'].set('0');self.p.vars['enemy_speed'].set('0.1')
+        self.p.apply();text=(self.control/'control.txt').read_text()
+        for entry in ('speed=10.0','tower_rate=5.0','enemy_damage=0.0','enemy_speed=0.1'):self.assertIn(entry,text)
+        self.p.reset();self.assertEqual(self.p.cfg,base.DEFAULTS)
+        self.assertTrue(all(self.p.vars[k].get()=='1' for k in ('speed','tower_rate','soldier_rate','hero_rate','enemy_gold','enemy_speed','enemy_damage')))
+
+    def test_new_settings_invalid_input_does_not_write(self):
+        for key,value in (('speed','11'),('tower_rate','0'),('enemy_gold','101'),('enemy_speed','0'),('enemy_damage','1.1'),('hero_rate','nan')):
+            with self.subTest(key=key,value=value):
+                self.p.vars[key].set(value);self.p.apply()
+                self.assertFalse((self.control/'control.txt').exists());self.p.vars[key].set('1')
 
 if __name__=='__main__':unittest.main(verbosity=2)

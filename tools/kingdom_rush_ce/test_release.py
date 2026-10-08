@@ -60,7 +60,7 @@ def main():
             found=[]
             def collect(hwnd,_):
                 title=ctypes.create_unicode_buffer(256);user.GetWindowTextW(hwnd,title,256)
-                if title.value=='Kingdom Rush · CE 修改器 2.1 RC1':
+                if title.value=='Kingdom Rush · CE 修改器 2.2 RC1':
                     pid=ctypes.c_ulong();user.GetWindowThreadProcessId(hwnd,ctypes.byref(pid))
                     handle=kernel.OpenProcess(0x1000,False,pid.value)
                     if handle:

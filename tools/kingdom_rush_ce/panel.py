@@ -13,7 +13,7 @@ import panel_base as base
 
 BUNDLE=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))
 COMPONENTS={'cheatengine-x86_64.exe','lua53-64.dll','defines.lua','main.lua','attach.CETRAINER'}
-VERSION='2.1 RC1'
+VERSION='2.2 RC1'
 CONFIRM_PHRASE='我确认解锁全部成就'
 
 def verify_components():
@@ -39,6 +39,7 @@ class CEPanel(base.Panel):
         self.hotkey_down=set()
         self.pending_ce_note=None
         super().__init__()
+        self.minsize(780,740)
         self.title('Kingdom Rush · CE 修改器 '+VERSION)
         self.note.set('先从 Steam 启动原版游戏，再点击连接。当前为离线验证候选版。')
         def children(w):
@@ -54,22 +55,56 @@ class CEPanel(base.Panel):
                 ttk.Button(profile,text='一键解锁全部英雄（当前存档）',command=self.unlock_heroes).grid(row=1,column=0,columnspan=4,sticky='w',pady=8)
                 ttk.Button(profile,text='解锁全部成就…（游戏内 + Steam）',command=self.unlock_achievements).grid(row=2,column=0,columnspan=4,sticky='w',pady=8)
                 ttk.Label(profile,text='成就操作需要输入确认文字；Steam 成就无法通过恢复存档撤销。',foreground='#b42318',wraplength=690).grid(row=3,column=0,columnspan=4,sticky='w',pady=6)
-                widget.grid_configure(row=4,pady=10)
+                widget.grid_configure(row=4,pady=6)
                 widget.configure(text=(
                     '使用：通过 Steam 启动原版 → 点击连接 → 选择存档 → 使用修改功能。\n'
                     '此 EXE 自带 CE 接入组件；不需要安装 CE，也不附带游戏。\n'
-                    '适配原版 Steam Build 24662480；版本不符会拒绝写入。\n\n'
+                    '适配原版 Steam Build 24662480；版本不符会拒绝写入。\n'
                     '星星采用额外升级点，不改关卡星级。额外点数仅在连接后生效。\n'
                     '此 Steam PC 版没有启用钻石商店，已移除钻石入口。\n'
                     '英雄解锁按存档保存，连接修改器后生效，不改变通关记录。\n'
                     '英雄／成就操作请回到地图，关闭英雄和成就窗口。\n'
-                    '修改星星、英雄、成就前自动备份；恢复前必须退出游戏。\n\n'
+                    '修改星星、英雄、成就前自动备份；恢复前必须退出游戏。\n'
                     '快捷键（面板运行时全局生效）：\n'
                     'Ctrl+F1 加 1000 金币；Ctrl+F2 开关生命锁定；\n'
                     'Ctrl+F3 切换 1／2 倍速；Ctrl+F4 开关技能冷却；\n'
-                    'Ctrl+F5 关闭全部临时效果。F8 切换游戏内状态条。\n\n'
-                    '原有功能已获用户实测反馈；新增解锁功能待游戏内验收。\n'
+                    'Ctrl+F5 关闭全部临时效果。F8 切换游戏内状态条。\n'
+                    '原有功能和解锁已获用户实测反馈；新增战斗倍率待游戏内验收。\n'
                     '从旧版升级请先退出游戏和旧面板，再重新启动、连接。'))
+        book=next(w for w in children(self) if isinstance(w,ttk.Notebook))
+        battle=self.nametowidget(book.tabs()[0])
+        book.tab(0,text='  我方buff  ')
+        book.tab(1,text='  其他  ')
+        # Pair each friendly damage control with its attack-speed control.
+        # This keeps the existing window size and avoids a long scrolling page.
+        for row,label,key in ((6,'英雄攻速','hero_rate'),(7,'士兵攻速','soldier_rate'),(8,'防御塔攻速','tower_rate')):
+            ttk.Label(battle,text=label).grid(row=row,column=3,sticky='w',padx=(18,4))
+            var=tk.StringVar(value='1');self.vars[key]=var
+            ttk.Combobox(battle,textvariable=var,values=('1','2','3','5','10'),width=7).grid(row=row,column=4,padx=4)
+            ttk.Label(battle,text='倍').grid(row=row,column=5,sticky='w')
+        for widget in battle.winfo_children():
+            info=widget.grid_info()
+            if info and int(info['row']) in (5,9):widget.grid_configure(columnspan=6)
+            if info and int(info['row'])==9:
+                widget.configure(text='伤害只对敌人生效；防御塔攻速不影响士兵，士兵包含援军，英雄单独计算。\n'
+                    '攻速调整攻击间隔、出手时间及攻击动画，不加快移动／复活；特殊技能受脚本限制。\n'
+                    '游戏速度支持 10 倍并与攻速叠加；实际速度受电脑性能和模拟帧率限制。')
+            if info and int(info['row'])==10:
+                if int(info['column'])==0:widget.configure(text='应用全部设置')
+                else:widget.grid_configure(column=3,columnspan=3)
+        extra=ttk.Frame(book,padding=16);book.insert(1,extra,text='  敌方debuff  ')
+        for row,(label,key,values) in enumerate([
+            ('敌人击杀金币奖励','enemy_gold',('1','2','5','10','20','100')),
+            ('敌人移动速度','enemy_speed',('1','0.75','0.5','0.25','0.1')),
+            ('敌人攻击伤害','enemy_damage',('1','0.75','0.5','0.25','0.1','0'))]):
+            self.make_factor(extra,row,label,key,values)
+        ttk.Label(extra,text='全部默认 1 倍；敌人移动和伤害倍率越小越弱，伤害可设为 0。\n'
+            '金币倍率仅作用于击杀奖励；提前出怪奖励、卖塔退款和漏怪返金保持原值。\n'
+            '特殊即死效果不属于数值伤害；瞬移不属于普通移动。',
+            foreground='#596579',wraplength=690).grid(row=3,column=0,columnspan=4,sticky='w',pady=16)
+        ttk.Button(extra,text='应用全部设置',command=self.apply).grid(row=4,column=0,columnspan=2,sticky='w')
+        ttk.Button(extra,text='恢复全部临时效果为默认',command=self.reset).grid(row=4,column=2,columnspan=2,sticky='e')
+        extra.columnconfigure(0,weight=1)
         self.after(100,self.poll_hotkeys)
 
     def progression_slot(self):
