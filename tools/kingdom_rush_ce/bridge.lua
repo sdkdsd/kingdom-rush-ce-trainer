@@ -4,21 +4,54 @@ local EXPECTED={
  ['kingdom rush.exe']='5472c2cceaf3e285143f730e04bf88e5',
  ['love.dll']='aafedf4301ac1cde8fdd17bff7996382',
  ['lua51.dll']='9b80f16e1797b5d56d3756ef29ccf5f6'}
+local MODULE_ORDER={'kingdom rush.exe','love.dll','lua51.dll'}
+function B.log(message)
+ B.diagnostics=B.diagnostics or {}
+ B.diagnostics[#B.diagnostics+1]=tostring(message)
+end
+function B.text_path(path)
+ if type(path)~='string' then return '' end
+ if utf8.len(path) then return path end
+ return ansiToUtf8(path)
+end
+local function readable_path(path)
+ if type(path)~='string' or path=='' then return nil end
+ -- CE's Windows module paths may be ANSI, while its file APIs expect UTF-8.
+ -- Check existence first: md5file can open a modal file error on a bad path.
+ local converted=B.text_path(path)
+ if fileExists(converted) then return converted end
+ if converted==path then
+  local alternative=ansiToUtf8(path)
+  if alternative~=path and fileExists(alternative) then return alternative end
+ end
+ return nil
+end
 local function hex(n)return string.format('%X',n)end
 local function bytes64(n)
  local t={};for i=1,8 do t[i]=string.format('%02X',n%256);n=n//256 end
  return table.concat(t,' ')
 end
 function B.validate(pid)
+ B.diagnostics={};B.log('process_id='..tostring(pid))
  local names=getProcesslist()
  assert(names[pid] and names[pid]:lower()=='kingdom rush.exe','请选择原版 Kingdom Rush.exe 进程')
- local modules={}
- for _,m in ipairs(enumModules(pid))do modules[m.Name:lower()]=m end
- for name,hash in pairs(EXPECTED)do
-  local m=assert(modules[name],'缺少模块 '..name)
+ local ok,list=pcall(enumModules,pid)
+ assert(ok and type(list)=='table','无法读取游戏模块列表：'..tostring(list))
+ local modules={};local count=0
+ for _,m in ipairs(list)do
+  assert(type(m.Name)=='string','模块列表格式异常')
+  modules[m.Name:lower()]=m;count=count+1
+  B.log('module='..m.Name..' | x64='..tostring(m.Is64Bit)..' | path='..B.text_path(m.PathToFile))
+ end
+ B.log('module_count='..count)
+ assert(count>0,'未读取到任何游戏模块；可能是进程访问或模块枚举失败，不能据此判断游戏文件缺失。')
+ for _,name in ipairs(MODULE_ORDER)do
+  local m=assert(modules[name],'未识别到模块 '..name..'；这是运行中进程的读取结果，不代表磁盘缺少文件。请保留连接诊断日志。')
   assert(m.Is64Bit,'只支持 64 位版本')
-  local actual=md5file(m.PathToFile)
-  assert(type(actual)=='string' and actual:lower()==hash,'版本不匹配或文件无法读取：'..name..'。停止写入。')
+  local path=assert(readable_path(m.PathToFile),'无法读取模块文件路径：'..name..'。停止写入。')
+  local hashed,actual=pcall(md5file,path)
+  B.log('hash='..name..' | md5='..tostring(actual))
+  assert(hashed and type(actual)=='string' and actual:lower()==EXPECTED[name],'版本不匹配或文件无法读取：'..name..'。停止写入。')
  end
  return modules['love.dll'].Address+0x1D3048,modules['lua51.dll'].Address
 end

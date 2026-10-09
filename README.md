@@ -5,7 +5,7 @@
 
 ## 下载与使用
 
-新版：[v2.2.0-rc1 预发布版](https://github.com/sdkdsd/kingdom-rush-ce-trainer/releases/tag/v2.2.0-rc1)，新增战斗倍率和 10 倍速，待游戏内验收。
+新版：[v2.2.0-rc2 修复预发布版](https://github.com/sdkdsd/kingdom-rush-ce-trainer/releases/tag/v2.2.0-rc2)，修复连接错误被覆盖、底部提示不可见及已复现的中文 DLL 路径校验问题。
 
 已获用户实测反馈的版本：[v2.1.0](https://github.com/sdkdsd/kingdom-rush-ce-trainer/releases/tag/v2.1.0)。
 下载对应 ZIP 并解压，运行 `KingdomRush-CE.exe`。
@@ -18,6 +18,22 @@
 
 连接和持久数据修改前会在 EXE 旁的 `backups` 目录自动备份。恢复备份必须先退出游戏。
 关闭面板发送临时效果复位指令；已保存的升级、星星和解锁不会自动回滚。
+
+## RC2 修复与连接失败反馈
+
+- 连接失败原因持续保留；后端退出后弹窗一次，重试开始时清除上次错误。
+- 底部提示始终留有显示空间，面板显示简短原因，弹窗和日志保留完整错误。
+- 修复已复现的 ANSI／UTF-8 路径编码问题，保留游戏架构、文件哈希和接口签名校验。
+- 区分模块枚举失败、空模块列表、指定模块未识别及文件无法读取。
+- 新增 `connection_diagnostics.txt`，记录进程 ID、模块路径／架构、模块数量与校验结果。
+
+升级时完全退出旧修改器和游戏，将新 ZIP 解压到新文件夹。从 Steam 启动游戏，等主菜单显示后，
+打开新版修改器并点击一次“连接原版游戏”。如果失败，保留本次弹窗，先不要再次连接。
+按 `Win+R` 打开 `%APPDATA%\kingdom_rush\kr_trainer_ce`，提供 `bridge_result.txt` 和
+`connection_diagnostics.txt`（哪个文件不存在也请说明）。日志中的个人用户名可以打码，不需要提供存档。
+
+“未识别到模块”表示运行中进程的读取结果，不代表磁盘缺少 DLL。
+此版本已通过离线和隔离进程测试，但尚未在反馈连接失败的电脑上验证，不能保证已解决该个案。
 
 ## 功能
 
@@ -53,9 +69,10 @@ Ctrl+F4 冷却；Ctrl+F5 复位临时效果；F8 游戏内状态条。
 ## 验证状态
 
 作者已收到使用者对原版连接、原有功能、备份恢复及新增解锁功能的实测通过反馈。
-v2.2 新功能尚未获得游戏内验收反馈。离线覆盖：173 项共享逻辑检查、117 项解锁检查、25 项面板测试、
+v2.2 新功能尚未获得游戏内验收反馈。离线覆盖：173 项共享逻辑检查、117 项解锁检查、29 项面板测试、20 项模块校验检查、
 49 项战斗倍率检查、36 项含 10 倍速的原版模拟器检查，
 以及 11 组真实 CE 隔离进程载荷和 6 组异常恢复场景；真实 Steam 调用不在自动测试中执行。
+真实 CE 使用原目录和中文目录中的 DLL，各连续校验 50 次通过；成品验证包含中文 APPDATA 下的诊断日志生成。
 
 v2.1.0 发布保留实测通过的原始 EXE，内部标题仍显示 `2.1 RC1`。
 没有为了改标题而重新构建已验收的程序。版本校验拒绝不同的游戏 EXE／DLL。
@@ -70,7 +87,7 @@ Windows x64，Python 3.14，PyInstaller 6。自行准备合法安装的对应游
 ```powershell
 python -m pip install -r requirements-build.txt
 python tools/kingdom_rush_ce/build.py
-python -m PyInstaller --noconfirm --windowed --onefile --name KingdomRush-CE --distpath output/KingdomRushCE-2.2 --workpath analysis/kingdom-rush/pyinstaller-ce --specpath analysis/kingdom-rush --add-data "$((Resolve-Path 'analysis/kingdom-rush/ce-stage/ce').Path);ce" analysis/kingdom-rush/ce-stage/panel.py
+python -m PyInstaller --noconfirm --windowed --onefile --name KingdomRush-CE --distpath output/KingdomRushCE-2.2-RC2 --workpath analysis/kingdom-rush/pyinstaller-ce --specpath analysis/kingdom-rush --add-data "$((Resolve-Path 'analysis/kingdom-rush/ce-stage/ce').Path);ce" analysis/kingdom-rush/ce-stage/panel.py
 python tools/prepare_tests.py
 python tools/run_tests.py
 python tools/kingdom_rush_ce/test_release.py

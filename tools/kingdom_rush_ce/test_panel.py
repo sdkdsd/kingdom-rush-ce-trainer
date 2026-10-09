@@ -26,6 +26,7 @@ class PanelTests(unittest.TestCase):
         self.mocks=[p.start() for p in self.patches];self.spawn=self.mocks[-1]
         self.p=object.__new__(panel.CEPanel)
         self.p.backend=None;self.p.backend_started=0;self.p.hotkey_down=set()
+        self.p.connection_error=None;self.p.connection_error_shown=False
         self.p.cfg=base.DEFAULTS.copy();self.p.seq=10;self.p.pending=None
         self.p.vars={k:Var(v) for k,v in dict(gold='1000',lives='20',stars='99',gems='999',speed='1',hero_damage='1',soldier_damage='1',tower_damage='1').items()}
         for k in ('tower_rate','soldier_rate','hero_rate','enemy_gold','enemy_speed','enemy_damage'):self.p.vars[k]=Var('1')
@@ -70,6 +71,33 @@ class PanelTests(unittest.TestCase):
         self.p.backend=Mock(poll=Mock(return_value=0))
         (self.control/'bridge_result.txt').write_text('ERROR version mismatch')
         self.p.refresh();self.assertIn('version mismatch',self.p.note.get());self.assertIsNone(self.p.backend)
+    def test_connection_error_survives_pending_reset_timeout(self):
+        self.p.launch();self.p.backend=Mock(poll=Mock(return_value=0))
+        error='ERROR 未识别到模块 love.dll'
+        (self.control/'bridge_result.txt').write_text(error,encoding='utf8')
+        self.p.refresh()
+        with patch.object(base.time,'time',return_value=time.time()+60):
+            self.p.refresh();self.p.refresh()
+        self.assertIn('love.dll',self.p.note.get())
+        self.assertIn('连接失败',self.p.status_var.get())
+        panel.messagebox.showerror.assert_called_once()
+        self.assertIsNotNone(self.p.pending)  # Do not silently discard an unconfirmed command.
+    def test_connection_error_popup_waits_for_backend_exit(self):
+        self.p.backend=Mock(poll=Mock(return_value=None))
+        (self.control/'bridge_result.txt').write_text('ERROR 未识别到模块 love.dll',encoding='utf8')
+        self.p.refresh();panel.messagebox.showerror.assert_not_called()
+        self.p.backend.poll.return_value=0
+        self.p.refresh();self.p.refresh();panel.messagebox.showerror.assert_called_once()
+    def test_retry_clears_previous_connection_error(self):
+        self.p.connection_error='old error';self.p.connection_error_shown=True
+        self.p.launch()
+        self.assertIsNone(self.p.connection_error)
+        self.assertFalse(self.p.connection_error_shown)
+    def test_backend_exit_without_result_is_persistent_and_reported_once(self):
+        self.p.launch();self.p.backend=Mock(poll=Mock(return_value=1))
+        self.p.refresh()
+        with patch.object(base.time,'time',return_value=time.time()+60):self.p.refresh()
+        self.assertIn('未返回成功',self.p.note.get());panel.messagebox.showerror.assert_called_once()
     def test_backend_exit_without_ack_not_success(self):
         self.p.backend=Mock(poll=Mock(return_value=0));self.p.refresh()
         self.assertIn('未返回成功',self.p.note.get())

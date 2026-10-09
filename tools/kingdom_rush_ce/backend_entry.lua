@@ -1,14 +1,17 @@
 -- B and PAYLOAD are provided by the deterministic build script.
-local directory=os.getenv('APPDATA')..'\\kingdom_rush\\kr_trainer_ce\\'
+local directory=B.text_path(os.getenv('APPDATA'))..'\\kingdom_rush\\kr_trainer_ce\\'
 local output=directory..'bridge_result.txt'
-local function finish(message)
- pcall(function()
+local function save_text(path,message)
   local stream=createMemoryStream()
   stream.writeString(message)
-  local ok,err=pcall(function()stream.saveToFile(output)end)
+  local ok,err=pcall(function()stream.saveToFile(path)end)
   stream.destroy()
   if not ok then error(err)end
- end)
+end
+local function finish(message)
+ B.log('result='..message)
+ pcall(save_text,directory..'connection_diagnostics.txt',table.concat(B.diagnostics or {},'\n'))
+ pcall(save_text,output,message)
  createTimer(100,function()closeCE()end)
 end
 local function recover(message)

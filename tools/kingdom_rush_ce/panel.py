@@ -3,6 +3,7 @@ import ctypes
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -13,7 +14,7 @@ import panel_base as base
 
 BUNDLE=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))
 COMPONENTS={'cheatengine-x86_64.exe','lua53-64.dll','defines.lua','main.lua','attach.CETRAINER'}
-VERSION='2.2 RC1'
+VERSION='2.2 RC2'
 CONFIRM_PHRASE='我确认解锁全部成就'
 
 def verify_components():
@@ -37,9 +38,11 @@ class CEPanel(base.Panel):
         self.backend=None
         self.backend_started=0
         self.hotkey_down=set()
-        self.pending_ce_note=None
+        self.connection_error=None
+        self.connection_error_shown=False
         super().__init__()
-        self.minsize(780,740)
+        self.geometry('820x800')
+        self.minsize(780,800)
         self.title('Kingdom Rush · CE 修改器 '+VERSION)
         self.note.set('先从 Steam 启动原版游戏，再点击连接。当前为离线验证候选版。')
         def children(w):
@@ -105,6 +108,10 @@ class CEPanel(base.Panel):
         ttk.Button(extra,text='应用全部设置',command=self.apply).grid(row=4,column=0,columnspan=2,sticky='w')
         ttk.Button(extra,text='恢复全部临时效果为默认',command=self.reset).grid(row=4,column=2,columnspan=2,sticky='e')
         extra.columnconfigure(0,weight=1)
+        # Reserve the footer before the expanding notebook, so errors stay visible.
+        footer=next(w for w in children(self) if isinstance(w,ttk.Label)
+            and str(w.cget('textvariable'))==str(self.note))
+        footer.pack_configure(side='bottom',before=book)
         self.after(100,self.poll_hotkeys)
 
     def progression_slot(self):
@@ -146,13 +153,14 @@ class CEPanel(base.Panel):
             if self.backend and self.backend.poll() is None:raise RuntimeError('正在连接，请稍候。')
             if not base.game_running():raise RuntimeError('请先从 Steam 启动原版游戏；修改器不会替你启动游戏。')
             if self.connected():self.note.set('已连接，无需重复接入。');return
+            self.connection_error=None;self.connection_error_shown=False
             engine=BUNDLE/'ce/cheatengine-x86_64.exe'
             script=BUNDLE/'ce/attach.CETRAINER'
             verify_components()
             folder=base.backup()
             self.reset(strict=True)
             base.CONTROL.mkdir(parents=True,exist_ok=True)
-            for name in ('bridge_result.txt','status.txt','error.txt'):
+            for name in ('bridge_result.txt','connection_diagnostics.txt','status.txt','error.txt'):
                 path=base.CONTROL/name
                 if path.exists():path.unlink()
             info=subprocess.STARTUPINFO();info.dwFlags|=subprocess.STARTF_USESHOWWINDOW;info.wShowWindow=0
@@ -160,22 +168,41 @@ class CEPanel(base.Panel):
                 startupinfo=info,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             self.backend_started=time.monotonic()
             self.note.set('正在通过 CE 连接原版游戏；备份：'+folder.name)
-        except (OSError,ValueError,RuntimeError) as e:messagebox.showerror('连接失败',str(e))
+        except (OSError,ValueError,RuntimeError) as e:
+            self.report_connection_error(str(e),popup=True)
+
+    def report_connection_error(self,message,popup=False):
+        self.connection_error=message
+        summary=re.sub(r'^ERROR\s*','',message)
+        summary=re.sub(r'^\[string[\s\S]*?\]:\d+:\s*','',summary)
+        summary=' '.join(summary.split())
+        self.note.set(summary if len(summary)<=72 else summary[:72]+'…（详情见日志）')
+        self.status_var.set('连接失败 · 具体原因见下方提示')
+        if popup and not self.connection_error_shown:
+            self.connection_error_shown=True
+            messagebox.showerror('连接失败',message+'\n\n诊断文件位于：\n'+str(base.CONTROL)+
+                '\n请保留 bridge_result.txt 和 connection_diagnostics.txt（若已生成）。')
 
     def refresh(self):
         super().refresh()
         if not self.connected():self.status_var.set('未连接 · 请先从 Steam 启动原版，再点击“连接原版游戏”')
-        if not self.backend:return
+        if not self.backend:
+            if self.connected():self.connection_error=None
+            elif self.connection_error:self.report_connection_error(self.connection_error)
+            return
         result=base.CONTROL/'bridge_result.txt'
         if result.exists():
             try:message=result.read_text(encoding='utf8')
-            except (OSError,UnicodeError):return
-            if message=='READY':self.note.set('CE 接入成功，临时接口已恢复。可以使用修改功能。')
-            else:self.note.set(message)
-            if self.backend.poll() is not None:self.backend=None
+            except (OSError,UnicodeError) as e:message='无法读取连接结果：'+str(e)
+            stopped=self.backend.poll() is not None
+            if stopped:self.backend=None
+            if message=='READY':
+                self.connection_error=None
+                self.note.set('CE 接入成功，临时接口已恢复。可以使用修改功能。')
+            else:self.report_connection_error(message,popup=stopped)
         elif self.backend.poll() is not None:
-            self.note.set('CE 接入进程未返回成功结果；请检查版本或进程访问权限。')
             self.backend=None
+            self.report_connection_error('CE 接入进程未返回成功结果；请检查版本或进程访问权限。',popup=True)
         elif time.monotonic()-self.backend_started>25:
             self.note.set('接入未完成。请不要重复连接，等待恢复或退出游戏后重试。')
 

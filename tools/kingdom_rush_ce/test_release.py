@@ -32,17 +32,17 @@ def main():
             (ce/name).write_bytes(reader.extract(key))
         env=os.environ.copy();env['APPDATA']=str(root)
         env['PATH']=str(Path(os.environ['SystemRoot'])/'System32')
-        # Redirect only the result channel. Identity checks and backend remain production code.
-        script=script.replace("local directory=os.getenv('APPDATA')..'\\\\kingdom_rush\\\\kr_trainer_ce\\\\'",'local directory='+json.dumps(root.as_posix()+'/',ensure_ascii=False))
-        assert "local directory=os.getenv" not in script
+        # Keep the production path code, including its non-ASCII APPDATA handling.
+        control=root/'kingdom_rush/kr_trainer_ce';control.mkdir(parents=True)
         table=ET.Element('CheatTable',CheatEngineTableVersion='45')
         ET.SubElement(table,'CheatEntries');ET.SubElement(table,'LuaScript').text=script
         path=root/'no-game.CETRAINER';ET.ElementTree(table).write(path,encoding='utf-8',xml_declaration=True)
         si=subprocess.STARTUPINFO();si.dwFlags|=subprocess.STARTF_USESHOWWINDOW;si.wShowWindow=0
         p=subprocess.run([str(ce/'cheatengine-x86_64.exe'),str(path),'NOAUTORUN'],cwd=ce,env=env,startupinfo=si,timeout=20)
         assert p.returncode==0
-        result=(root/'bridge_result.txt').read_text(encoding='utf8')
+        result=(control/'bridge_result.txt').read_text(encoding='utf8')
         assert result.startswith('ERROR ') and 'Steam' in result,result
+        assert 'result=ERROR' in (control/'connection_diagnostics.txt').read_text(encoding='utf8')
         # Launch the actual packaged panel with a disposable APPDATA directory.
         # Only close its own window; no connect button or game launch is invoked.
         portable=root/'KingdomRush-CE.exe';shutil.copy2(exe,portable)
@@ -60,7 +60,7 @@ def main():
             found=[]
             def collect(hwnd,_):
                 title=ctypes.create_unicode_buffer(256);user.GetWindowTextW(hwnd,title,256)
-                if title.value=='Kingdom Rush · CE 修改器 2.2 RC1':
+                if title.value=='Kingdom Rush · CE 修改器 2.2 RC2':
                     pid=ctypes.c_ulong();user.GetWindowThreadProcessId(hwnd,ctypes.byref(pid))
                     handle=kernel.OpenProcess(0x1000,False,pid.value)
                     if handle:

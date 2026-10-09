@@ -22,7 +22,7 @@ combat(T)
 T.install()
 KR_CE_RUNTIME=T
 end
-assert(KR_CE_RUNTIME.ce_version=='2.2 RC1','修改器版本已更新，请退出游戏后重新连接')
+assert(KR_CE_RUNTIME.ce_version=='2.2 RC2','修改器版本已更新，请退出游戏后重新连接')
 KR_CE_RUNTIME.hook();KR_CE_RUNTIME.poll(true);KR_CE_RUNTIME.status()
 return 'KR_CE_READY'
 """

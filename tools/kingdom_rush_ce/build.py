@@ -5,7 +5,7 @@ from run_bridge_test import runtime_payload,literal
 HERE=Path(__file__).resolve().parent
 WORK=HERE.parents[1]
 STAGE=WORK/'analysis/kingdom-rush/ce-stage'
-OUT=WORK/'output/KingdomRushCE-2.2'
+OUT=WORK/'output/KingdomRushCE-2.2-RC2'
 CE=Path(os.environ['KR_CE_DIR'])
 
 def build():
